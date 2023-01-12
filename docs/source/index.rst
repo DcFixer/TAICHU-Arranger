@@ -12,6 +12,7 @@
 
    function/index
    architect/index
+   begin/index
 
 
 
