@@ -1,22 +1,19 @@
-Welcome to Lumache's documentation!
-===================================
+.. tcdocs documentation master file, created by
+   sphinx-quickstart on Tue Jan 10 19:56:50 2023.
+   You can adapt this file completely to your liking, but it should at least
+   contain the root `toctree` directive.
 
-**Lumache** (/lu'make/) is a Python library for cooks and food lovers
-that creates recipes mixing random ingredients.
-It pulls data from the `Open Food Facts database <https://world.openfoodfacts.org/>`_
-and offers a *simple* and *intuitive* API.
-
-Check out the :doc:`usage` section for further information, including
-how to :ref:`installation` the project.
-
-.. note::
-
-   This project is under active development.
-
-Contents
---------
+欢迎来到TAICHU-Arranger中文文档
+==================================
 
 .. toctree::
+   :maxdepth: 3
+   :caption: 目录:
 
-   usage
-   api
+   function/index
+   architect/index
+
+
+
+
+

@@ -2,9 +2,9 @@
 
 # -- Project information
 
-project = 'Lumache'
-copyright = '2021, Graziella'
-author = 'Graziella'
+project = 'TCDocs'
+copyright = '2023, fixer'
+author = 'fixer'
 
 release = '0.1'
 version = '0.1.0'
