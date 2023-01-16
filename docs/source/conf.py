@@ -17,7 +17,7 @@
 
 # -- Project information -----------------------------------------------------
 
-project = 'TCDocs'
+project = 'TYDocs'
 copyright = '2023, fixer'
 author = 'fixer'
 

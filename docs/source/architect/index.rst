@@ -1,23 +1,25 @@
 架构
 ====
-.. image:: images/Arranger架构图.png
+.. image:: images/架构图.png
 
 Arranger由Scheduler和Controller两部分组成：
- * Controller负责对CRD API资源进行合法性校验，管理CRD（TCJob）的生命周期，创建和删除资源。
+ * Controller负责对CRD API资源进行合法性校验，管理CRD（TYJob）的生命周期，创建和删除资源。
  * Scheduler是一个周期性调度器，会将周期内的job依策略排序，按顺序对其中的任务进行调度，并支持多种调度算法。
 
 API
 ----
 
-Arranger针对TCRL的结构设计了自定义资源TCJob，
-Leader对应TCRL中的Learner，Worker则对应Actor，WorkerSet是一类启动参数的Actor的集合。
-.. image:: images/TCJob结构.png
+Arranger针对TYRL的结构设计了自定义资源TYJob，
+Leader对应TYRL中的Learner，Worker则对应Actor，WorkerSet是一类启动参数的Actor的集合。
+.. image:: images/TYJob结构.png
 
-TCJobSpec定义了任务的期望状态，各字段及其含义如下：
+.. image:: images/TYJob字段.png
+
+TYJobSpec定义了任务的期望状态，各字段及其含义如下：
 
 .. code-block:: go
 
-    type TCJobSpec struct {
+    type TYJobSpec struct {
        // INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
        // Important: Run "make" to regenerate code after modifying this file
 
@@ -36,7 +38,7 @@ TCJobSpec定义了任务的期望状态，各字段及其含义如下：
        // +kubebuilder:validation:Required
        WorkerSets []WorkerSet `json:"workerSets,omitempty"`
 
-       // CleanPodPolicy defines the policy to clean pods after TCJob completed.
+       // CleanPodPolicy defines the policy to clean pods after TYJob completed.
        // +kubebuilder:default=All
        // +kubebuilder:validation:Enum=Running;All;None
        CleanPodPolicy CleanPodPolicy `json:"cleanPodPolicy,omitempty"`
@@ -105,7 +107,7 @@ TCJobSpec定义了任务的期望状态，各字段及其含义如下：
        // +kubebuilder:validation:Required
        Name string `json:"name,omitempty"`
 
-       // Template defines the learner pod for TCJob.
+       // Template defines the learner pod for TYJob.
        // +kubebuilder:validation:Required
        Template corev1.PodTemplateSpec `json:"template,omitempty"`
     }
@@ -114,7 +116,7 @@ TCJobSpec定义了任务的期望状态，各字段及其含义如下：
        // +kubebuilder:validation:Required
        Name string `json:"name,omitempty"`
 
-       // Template defines the actor pod for TCJob.
+       // Template defines the actor pod for TYJob.
        // +kubebuilder:validation:Required
        Template corev1.PodTemplateSpec `json:"template,omitempty"`
 
@@ -124,7 +126,7 @@ TCJobSpec定义了任务的期望状态，各字段及其含义如下：
        Counts int `json:"counts,omitempty"`
     }
 
-Controller控制TCJob的生命周期，TCJob的状态Stage设计如下：
+Controller控制TYJob的生命周期，TYJob的状态Stage设计如下：
 
 .. code-block:: go
 
@@ -150,7 +152,7 @@ Controller控制TCJob的生命周期，TCJob的状态Stage设计如下：
        JobFailed Stage = "Failed"
     )
 
-Scheduler控制TCJob的调度阶段，调度阶段设计如下：
+Scheduler控制TYJob的调度阶段，调度阶段设计如下：
 
 .. code-block:: go
 
@@ -181,13 +183,13 @@ Controller获取触发Reconciler的Job对象，检查声明资源的合法性并
 工作流
 ~~~~~~
 
-.. image:: images/ArrangerController工作流.png
+.. image:: images/Controller工作流.png
 
 Arranger Controller工作流程如下：
 
 1. 获取用户提交的Job，检查合法性并初始化
 2. 状态转移
- * TCJob初次提交时处于Pending阶段
+ * TYJob初次提交时处于Pending阶段
   - 若此时的调度阶段处于UnScheduled，保持Pending状态
   - 若此时的调度阶段处于ScheduledPartly或ScheduledScuueed阶段，创建Leader，Job进入Starting状态
   - 若此时的调度阶段处于ScheduledFailed阶段，进入Failed状态
@@ -211,12 +213,12 @@ Job Queue会依Job调度策略对Job进行排序，再依次处理Job中的Pod�
 Job根据其中Pods的调度阶段确定本身的调度阶段，
 包括Unscheduled,ScheduledSucceed,ScheduleFailed,ScheduledPartly,
 Scheduler会尝试为处于后两个调度阶段的job中的未调度pod进行调度，
-并将结果写入TCJob.status.Allocations中以供Controller使用。
+并将结果写入TYJob.status.Allocations中以供Controller使用。
 
 工作流
 ~~~~~~
 
-.. image:: images/ArrangerScheduler工作流.png
+.. image:: images/Scheduler工作流.png
 
 Arranger Scheduler工作流程如下：
 
@@ -236,8 +238,14 @@ Arranger支持在一个调度周期中对多job任务进行调度，
 PriorityPolicy
 #################
 
+根据 JobQueue 中每个 Job.Spec.Priority 的值对 Queue 中所有Job排序，确定被 Scheduler 调度的先后顺序
+
 DRFPolicy
 ########################
+
+Dominant Resource Fairness，Scheduler根据Job的主导资源，计算Job的share值，在调度的过程中，具有较低share值的Job将具有更高的调度优先级
+
+.. image:: images/资源计算图.png
 
 BasicPolicy
 ~~~~~~~~~~~~~~~~
@@ -248,14 +256,24 @@ BasicPolicy
 Binpack policy
 ########################
 
+目标是尽量把已有的节点填满（尽量不往空白节点分配）。具体实现上，Binpack调度算法是给可以投递的Nodes打分，分数越高表示节点的资源利用率越高，将应用负载靠拢在部分Nodes
+
 LeaderFirst policy
 ########################
+
+目标是将 Learner 调度到资源利用率较低的Node，保障Learner 的 正常运行；Actor 则调度到资源利用率较大的Node，节约部分资源。Leader GPU 权重提高，选分数低的节点，Worker CPU 权重提高，选分数高的节点
 
 MinFragmen policy
 ########################
 
+目标是减少集群节点的资源碎片率。碎片率：{ 1 - Abs[ CPU(Request / Allocatable) - Mem(Request / Allocatable)] } * Score。是用来考虑 CPU 的使用比例和内存使用比例的差值。如果这个差值越大，就表示碎片越大，Worker 优先不分配到这个节点上；如果这个差值越小，就表示这个碎片率越小，Worker优先分配到这个节点上
+
 JobAffinity Policy
 ########################
 
+目标是尽量将一个 Job 的 Pods 调度到一个节点， 集中负载
+
 JobAntiAffinity
 ########################
+
+目标是尽量将一个 Job 的 Pods 打散到不同节点，平坦负载
